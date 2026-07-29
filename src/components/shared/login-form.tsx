@@ -219,9 +219,15 @@ export default function LoginForm() {
                         <label className="text-sm font-medium text-gray-300">Name</label>
                         <Input
                           type="text"
-                          placeholder="Your name"
+                          placeholder="Your nickname (e.g. ahmed12345)"
                           value={name}
-                          onChange={(e) => setName(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+                            setName(val);
+                            if (isSignUp && val) {
+                              setEmail(`${val}@customer.com`);
+                            }
+                          }}
                           required
                           className="input-modern"
                         />
@@ -266,10 +272,14 @@ export default function LoginForm() {
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => !isSignUp && setEmail(e.target.value)}
+                    readOnly={isSignUp}
                     required
-                    className="input-modern"
+                    className={`input-modern ${isSignUp ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
+                  {isSignUp && name && (
+                    <p className="text-xs text-cyan-400">Your email will be: {email}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

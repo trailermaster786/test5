@@ -328,20 +328,38 @@ export default function AdminPortal() {
       toast.error('Code and value are required');
       return;
     }
+    const numValue = parseFloat(salesForm.value);
+    if (isNaN(numValue) || numValue <= 0) {
+      toast.error('Value must be a positive number');
+      return;
+    }
     try {
+      const payload = {
+        code: salesForm.code.toUpperCase(),
+        description: salesForm.description,
+        type: salesForm.type,
+        value: numValue,
+        minOrder: parseFloat(salesForm.minOrder) || 0,
+        maxUses: parseInt(salesForm.maxUses) || 100,
+        startsAt: salesForm.startsAt || null,
+        endsAt: salesForm.endsAt || null,
+      };
       if (editingPromo) {
         const res = await fetch('/api/admin/promos', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingPromo.id, ...salesForm }),
+          body: JSON.stringify({ id: editingPromo.id, ...payload }),
         });
-        if (!res.ok) throw new Error('Failed to update');
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to update');
+        }
         toast.success('Sale updated');
       } else {
         const res = await fetch('/api/admin/promos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(salesForm),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -407,11 +425,11 @@ export default function AdminPortal() {
         if (!res.ok) throw new Error('Failed to update');
         toast.success('User updated');
       } else {
-        if (!userForm.password) { toast.error('Password is required for new users'); return; }
+        if (userForm.role === 'driver' && !userForm.password) { toast.error('Password is required for drivers'); return; }
         const res = await fetch('/api/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userForm),
+          body: JSON.stringify({ ...userForm, password: userForm.password || 'changeme123' }),
         });
         if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to create'); }
         toast.success('User created');
@@ -539,6 +557,20 @@ export default function AdminPortal() {
       toast.success(product.isActive ? 'Product deactivated' : 'Product activated');
       fetchProducts();
     } catch { toast.error('Failed to update product'); }
+  };
+
+  const deleteProduct = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    try {
+      const res = await fetch('/api/admin/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      toast.success('Product deleted');
+      fetchProducts();
+    } catch { toast.error('Failed to delete product'); }
   };
 
   const openEditPromo = (promo: Promo) => {
@@ -773,7 +805,7 @@ export default function AdminPortal() {
               { id: 'orders', icon: ShoppingCart, label: 'Orders' },
               { id: 'sales', icon: Sparkles, label: 'Sales & Promos' },
               { id: 'bottles', icon: Droplets, label: 'Bottles' },
-              { id: 'generate', icon: Plus, label: 'Generate Bottles' },
+              { id: 'generate', icon: Plus, label: 'Generate QR Code' },
               { id: 'destruction', icon: Trash2, label: 'Destruction Queue' },
               { id: 'users', icon: Users, label: 'Users' },
               { id: 'fleet', icon: Truck, label: 'Fleet' },
@@ -1259,7 +1291,7 @@ export default function AdminPortal() {
             </motion.div>
           )}
 
-          {/* Generate Bottles */}
+          {/* Generate QR Code */}
           {page === 'generate' && (
             <motion.div
               key="generate"
@@ -1268,7 +1300,7 @@ export default function AdminPortal() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-md"
             >
-              <h2 className="text-2xl font-bold text-white mb-6">Generate Bottles</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">Generate QR Code</h2>
               <Card className="glass border-white/10">
                 <CardHeader>
                   <CardTitle className="text-white">Create New Bottles</CardTitle>
@@ -1755,6 +1787,9 @@ export default function AdminPortal() {
                               <Button size="icon" variant="ghost" onClick={() => toggleProductActive(product)} className="text-gray-400 hover:text-white">
                                 {product.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                               </Button>
+                              <Button size="icon" variant="ghost" onClick={() => deleteProduct(product.id)} className="text-red-400 hover:text-red-300">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -2007,7 +2042,7 @@ export default function AdminPortal() {
               <label className="text-sm text-gray-300 mb-1 block">Email *</label>
               <Input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="email@example.com" className="bg-white/5 border-white/10 text-white" />
             </div>
-            {!editingUser && (
+            {!editingUser && userForm.role === 'driver' && (
               <div>
                 <label className="text-sm text-gray-300 mb-1 block">Password *</label>
                 <Input type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Password" className="bg-white/5 border-white/10 text-white" />
